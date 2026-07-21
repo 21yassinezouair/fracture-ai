@@ -12,7 +12,9 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
 import wandb
 
-sys.path.append(str(Path.home() / "fracture-ai"))
+# Racine du projet = dossier parent de scripts/ (marche partout)
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.append(str(ROOT))
 from src.data.dataset import FractureDataset
 from src.data.transforms import get_train_transforms, get_val_transforms
 from src.models.build import build_model
@@ -23,23 +25,19 @@ def run(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device : {device}")
 
-    root = Path.home() / "fracture-ai"
-    splits = root / "data" / "splits"
-    ckpt_dir = root / "checkpoints"
+    splits = ROOT / "data" / "splits"
+    ckpt_dir = ROOT / "checkpoints"
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    # --- Donnees ---
     train_ds = FractureDataset(splits / "train.csv", get_train_transforms())
     val_ds = FractureDataset(splits / "val.csv", get_val_transforms())
     train_loader = DataLoader(train_ds, batch_size=args.batch, shuffle=True, num_workers=2, pin_memory=True)
     val_loader = DataLoader(val_ds, batch_size=args.batch, shuffle=False, num_workers=2, pin_memory=True)
 
-    # --- Gestion du desequilibre (17.6% de fractures) ---
     labels = train_ds.df["label"].values
     pos_weight = torch.tensor([(labels == 0).sum() / (labels == 1).sum()], device=device)
     print(f"pos_weight : {pos_weight.item():.2f}")
 
-    # --- Modele, loss, optimizer ---
     model = build_model(args.model).to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
@@ -52,7 +50,6 @@ def run(args):
     patience, no_improve = 5, 0
 
     for epoch in range(args.epochs):
-        # --- Entrainement ---
         model.train()
         train_loss = 0.0
         for images, targets in train_loader:
@@ -67,7 +64,6 @@ def run(args):
             train_loss += loss.item()
         scheduler.step()
 
-        # --- Validation ---
         model.eval()
         preds, trues = [], []
         with torch.no_grad():
@@ -83,7 +79,6 @@ def run(args):
         print(f"Epoch {epoch+1}/{args.epochs} | loss {avg_loss:.4f} | val AUC {auc:.4f}")
         wandb.log({"epoch": epoch+1, "train_loss": avg_loss, "val_auc": auc})
 
-        # --- Sauvegarde du meilleur + early stopping ---
         if auc > best_auc:
             best_auc = auc
             torch.save(model.state_dict(), ckpt_dir / f"best_{args.model}.pt")

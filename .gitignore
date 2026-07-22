@@ -1,10 +1,10 @@
 /data/
-checkpoints/
 outputs/logs/
 wandb/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .env
-*.pt
-*.pth
+checkpoints/best_convnext_tiny.pt
+checkpoints/best_efficientnet_b4.pt
+checkpoints/best_vit_base_patch16_224.pt

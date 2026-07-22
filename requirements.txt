@@ -1,6 +1,6 @@
 streamlit
-torch
-torchvision
+torch --index-url https://download.pytorch.org/whl/cpu
+torchvision --index-url https://download.pytorch.org/whl/cpu
 timm
 albumentations
 opencv-python-headless

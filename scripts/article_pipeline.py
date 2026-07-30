@@ -56,7 +56,10 @@ def train_model(train_loader, val_loader, pos_weight, model_name, epochs, device
             opt.zero_grad()
             with torch.cuda.amp.autocast():
                 loss = crit(model(x), y)
-            scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            scaler.step(opt); scaler.update()
         sched.step()
         model.eval(); p, t = [], []
         with torch.no_grad():
@@ -64,7 +67,11 @@ def train_model(train_loader, val_loader, pos_weight, model_name, epochs, device
                 with torch.cuda.amp.autocast():
                     o = model(x.to(device))
                 p.extend(torch.sigmoid(o).cpu().numpy().ravel()); t.extend(y.numpy().ravel())
-        auc = roc_auc_score(t, p)
+        p = np.nan_to_num(np.array(p), nan=0.5)  # remplace les NaN eventuels
+        try:
+            auc = roc_auc_score(t, p)
+        except ValueError:
+            auc = 0.5
         if auc > best_auc:
             best_auc, best_state, no_imp = auc, {k: v.cpu().clone() for k, v in model.state_dict().items()}, 0
         else:

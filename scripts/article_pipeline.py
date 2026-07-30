@@ -91,12 +91,14 @@ def ece_score(y, p, n_bins=10):
     return ece, pts
 
 def temperature_scale(logits, y):
-    """Trouve la meilleure temperature T qui minimise l'ECE (recherche simple)."""
-    best_T, best_ece = 1.0, 1e9
+    """Trouve T qui minimise la log-vraisemblance (methode standard, Guo et al. 2017)."""
+    eps = 1e-7
+    best_T, best_nll = 1.0, 1e18
     for T in np.arange(0.5, 5.05, 0.05):
         p = 1/(1+np.exp(-logits/T))
-        e, _ = ece_score(y, p)
-        if e < best_ece: best_ece, best_T = e, T
+        p = np.clip(p, eps, 1-eps)
+        nll = -np.mean(y*np.log(p) + (1-y)*np.log(1-p))
+        if nll < best_nll: best_nll, best_T = nll, T
     return best_T
 
 def run(args):

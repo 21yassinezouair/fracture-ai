@@ -135,6 +135,10 @@ def run(args):
     print("[2/4] Evaluation test...")
     logit_te, y_te = predict(model, te, device)
     p_te = 1/(1+np.exp(-logit_te))
+    # Sauvegarde des predictions test (pour DeLong coherent)
+    import json as _json
+    (TAB/f"preds_{m}.json").write_text(_json.dumps({
+        "y_true": y_te.tolist(), "p_test": p_te.tolist()}))
     logit_va, y_va = predict(model, va, device)
     p_va = 1/(1+np.exp(-logit_va))
     fpr, tpr, thr = roc_curve(y_va, p_va)
